@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>デジタルスタンプラリー ポスター生成</title>
+  <title>デジタルスタンプラリー ポスター合成ツール</title>
   <style>
     body {
       font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
@@ -79,7 +79,7 @@
     }
     canvas {
       max-width: 100%;
-      width: 400px;
+      width: 450px;
       height: auto;
       border: 1px solid #ddd;
       border-radius: 6px;
@@ -93,12 +93,12 @@
   <div class="container">
     <div class="form-section">
       <div class="form-group">
-        <label for="locationText">1. 場所の名称（文字）</label>
+        <label for="locationText">1. 場所を示す文字列</label>
         <input type="text" id="locationText" placeholder="例: 100周年記念館" value="100周年記念館">
       </div>
       
       <div class="form-group">
-        <label for="qrFileInput">2. QRコード画像</label>
+        <label for="qrFileInput">2. QRコード画像を選択</label>
         <input type="file" id="qrFileInput" accept="image/*">
       </div>
 
@@ -118,74 +118,28 @@
     const qrFileInput = document.getElementById('qrFileInput');
     const downloadBtn = document.getElementById('downloadBtn');
 
-    // 1枚目の台紙画像をベクター(SVG)形式で直接コード化（画像ファイル不要で確実に動きます）
-    const bgSvg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800">
-      <defs>
-        <linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#dbeeff"/>
-          <stop offset="100%" stop-color="#ffffff"/>
-        </linearGradient>
-      </defs>
-      <rect width="600" height="800" fill="url(#sky)"/>
-      <path d="M 0,800 Q 300,700 600,800 L 600,800 L 0,800 Z" fill="#e2f0d9"/>
-      
-      <!-- タイトル手書き風演出 -->
-      <path d="M 30,140 L 60,110 M 35,160 L 65,160 M 40,180 L 70,200" stroke="#003366" stroke-width="4" stroke-linecap="round"/>
-      <path d="M 570,140 L 540,110 M 565,160 L 535,160 M 560,180 L 530,200" stroke="#003366" stroke-width="4" stroke-linecap="round"/>
-      
-      <!-- デジタルスタンプラリー -->
-      <text x="300" y="125" font-family="'Hiragino Sans', 'Arial Black', sans-serif" font-weight="900" font-size="44" fill="#003366" text-anchor="middle">デジタルスタンプラリー</text>
-      
-      <!-- 上部学校アイコン -->
-      <path d="M 270,30 L 300,10 L 330,30 L 320,30 L 320,50 L 280,50 L 280,30 Z" fill="#003366"/>
-      <line x1="250" y1="60" x2="350" y2="60" stroke="#003366" stroke-width="3"/>
-
-      <!-- 青いリボン -->
-      <path d="M 90,145 L 510,145 L 480,180 L 510,215 L 90,215 L 120,180 Z" fill="#003366"/>
-
-      <!-- 中央建物シルエット（校舎イメージ） -->
-      <g fill="#8899a6" opacity="0.4">
-        <rect x="150" y="280" width="300" height="200"/>
-        <polygon points="300,200 260,280 340,280"/>
-        <rect x="270" y="230" width="60" height="50"/>
-      </g>
-
-      <!-- 樹木シルエット -->
-      <path d="M 30,220 C 10,350 100,500 100,600 L 0,600 L 0,220 Z" fill="#2d5a27" opacity="0.7"/>
-      <path d="M 570,220 C 590,350 500,500 500,600 L 600,600 L 600,220 Z" fill="#2d5a27" opacity="0.7"/>
-
-      <!-- 中央の白枠（QRコード配置枠） -->
-      <rect x="180" y="400" width="240" height="240" rx="16" fill="#ffffff" stroke="#003366" stroke-width="6"/>
-
-      <!-- 下部注意書きエリア -->
-      <rect x="30" y="660" width="540" height="110" rx="12" fill="#ffffff" stroke="#003366" stroke-width="3"/>
-      
-      <!-- シークレットモード注意用アイコン -->
-      <circle cx="100" cy="715" r="35" fill="#003366"/>
-      <path d="M 80,705 Q 100,695 120,705 M 85,715 A 8,8 0 1,0 95,715 M 105,715 A 8,8 0 1,0 115,715 M 95,715 L 105,715" stroke="#ffffff" stroke-width="3" fill="none"/>
-      
-      <!-- 警告三角マーク -->
-      <polygon points="120,720 135,745 105,745" fill="#e60033"/>
-      <text x="120" y="741" font-weight="bold" font-size="14" fill="#ffffff" text-anchor="middle">!</text>
-
-      <!-- 注意書き文章 -->
-      <text x="160" y="698" font-family="sans-serif" font-weight="bold" font-size="20" fill="#003366">シークレットモード では</text>
-      <text x="160" y="726" font-family="sans-serif" font-weight="bold" font-size="20" fill="#e60033">進捗が保存されません。</text>
-      <text x="160" y="750" font-family="sans-serif" font-size="12" fill="#333333">スタンプを取得する際は、通常のブラウザモードでご利用ください。</text>
-
-      <!-- 最下部ラインアート -->
-      <line x1="50" y1="785" x2="550" y2="785" stroke="#003366" stroke-width="2"/>
-    </svg>`;
-
-    const bgImage = new Image();
-    bgImage.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(bgSvg);
-
+    let bgImage = new Image();
     let uploadedQR = null;
 
+    // ローカル実行時のCORSエラー（ダウンロード時に画像が白くなる現象）を防ぐため、
+    // 画像ファイルをFileReaderでBase64形式として読み込みます。
+    fetch('bg.jpg')
+      .then(response => response.blob())
+      .then(blob => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          bgImage.src = reader.result;
+        };
+        reader.readAsDataURL(blob);
+      })
+      .catch(err => {
+        // 直接読み込める環境用のフォールバック
+        bgImage.src = 'bg.jpg';
+      });
+
     bgImage.onload = () => {
-      canvas.width = 600;
-      canvas.height = 800;
+      canvas.width = bgImage.naturalWidth;
+      canvas.height = bgImage.naturalHeight;
       drawPoster();
     };
 
@@ -207,41 +161,55 @@
     });
 
     function drawPoster() {
-      // 1. 背景描画
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+      if (!bgImage.complete || bgImage.naturalWidth === 0) return;
 
-      // 2. リボン部分の文字描画
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // 1. 背景描画
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(bgImage, 0, 0, w, h);
+
+      // 2. リボン部分の文字描画（文字数に応じてフォントサイズを動的調整）
       const text = locationInput.value;
       if (text) {
-        ctx.font = 'bold 36px "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif';
+        // リボンの横幅に合わせて基本サイズを設定
+        let fontSize = Math.floor(w * 0.08); 
+        
+        ctx.font = `bold ${fontSize}px "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif`;
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
-        // リボンの中心位置
-        ctx.fillText(text, 300, 180);
+
+        // 1枚目画像の上部リボン中央座標（%指定で相対位置調整）
+        const textX = w * 0.5;
+        const textY = h * 0.188;
+
+        ctx.fillText(text, textX, textY);
       }
 
-      // 3. 中央の枠にQRコードを描画
+      // 3. 中央の白枠部分にQRコードを描画
       if (uploadedQR) {
-        // 白枠(180, 400, 240, 240)の内側に収まるよう調整
-        const padding = 15;
-        const qrX = 180 + padding;
-        const qrY = 400 + padding;
-        const qrSize = 240 - (padding * 2);
+        // 中央白枠の相対位置とサイズ
+        const qrSize = w * 0.355; 
+        const qrX = (w - qrSize) / 2;
+        const qrY = h * 0.528;
 
         ctx.drawImage(uploadedQR, qrX, qrY, qrSize, qrSize);
       }
     }
 
-    // ダウンロード機能
+    // ダウンロード処理
     downloadBtn.addEventListener('click', () => {
-      const link = document.createElement('a');
-      const filename = locationInput.value ? `${locationInput.value}_poster.png` : 'poster.png';
-      link.download = filename;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      try {
+        const link = document.createElement('a');
+        const filename = locationInput.value ? `${locationInput.value}_ポスター.png` : 'ポスター.png';
+        link.download = filename;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      } catch (e) {
+        alert('画像の保存に失敗しました。Webサーバー経由（http://）で開くか、Chrome/Edgeなどの最新ブラウザでお試しください。');
+      }
     });
   </script>
 </body>
