@@ -68,6 +68,10 @@
     button:hover {
       background-color: #003d80;
     }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
     .preview-section {
       background: #fff;
       padding: 24px;
@@ -83,6 +87,7 @@
       height: auto;
       border: 1px solid #ddd;
       border-radius: 6px;
+      background-color: #f9f9f9;
     }
   </style>
 </head>
@@ -93,12 +98,17 @@
   <div class="container">
     <div class="form-section">
       <div class="form-group">
-        <label for="locationText">1. 場所を示す文字列</label>
+        <label for="bgFileInput">1. 背景台紙画像（1枚目の画像）を選択</label>
+        <input type="file" id="bgFileInput" accept="image/*">
+      </div>
+
+      <div class="form-group">
+        <label for="locationText">2. 場所を示す文字列</label>
         <input type="text" id="locationText" placeholder="例: 100周年記念館" value="100周年記念館">
       </div>
       
       <div class="form-group">
-        <label for="qrFileInput">2. QRコード画像を選択</label>
+        <label for="qrFileInput">3. QRコード画像を選択</label>
         <input type="file" id="qrFileInput" accept="image/*">
       </div>
 
@@ -114,37 +124,41 @@
     const canvas = document.getElementById('posterCanvas');
     const ctx = canvas.getContext('2d');
 
+    const bgFileInput = document.getElementById('bgFileInput');
     const locationInput = document.getElementById('locationText');
     const qrFileInput = document.getElementById('qrFileInput');
     const downloadBtn = document.getElementById('downloadBtn');
 
-    let bgImage = new Image();
+    let bgImage = null;
     let uploadedQR = null;
 
-    // ローカル実行時のCORSエラー（ダウンロード時に画像が白くなる現象）を防ぐため、
-    // 画像ファイルをFileReaderでBase64形式として読み込みます。
-    fetch('bg.jpg')
-      .then(response => response.blob())
-      .then(blob => {
+    // 初期状態のキャンバスサイズ設定
+    canvas.width = 600;
+    canvas.height = 800;
+    drawPlaceholder();
+
+    // 背景画像の選択
+    bgFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
         const reader = new FileReader();
-        reader.onloadend = () => {
-          bgImage.src = reader.result;
+        reader.onload = (event) => {
+          bgImage = new Image();
+          bgImage.onload = () => {
+            canvas.width = bgImage.naturalWidth;
+            canvas.height = bgImage.naturalHeight;
+            drawPoster();
+          };
+          bgImage.src = event.target.result;
         };
-        reader.readAsDataURL(blob);
-      })
-      .catch(err => {
-        // 直接読み込める環境用のフォールバック
-        bgImage.src = 'bg.jpg';
-      });
+        reader.readAsDataURL(file);
+      }
+    });
 
-    bgImage.onload = () => {
-      canvas.width = bgImage.naturalWidth;
-      canvas.height = bgImage.naturalHeight;
-      drawPoster();
-    };
-
+    // 文字入力時の更新
     locationInput.addEventListener('input', drawPoster);
 
+    // QRコード画像の選択
     qrFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
@@ -160,8 +174,22 @@
       }
     });
 
+    // 初期プレビュー用メッセージ
+    function drawPlaceholder() {
+      ctx.fillStyle = "#f0f0f0";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.font = "18px sans-serif";
+      ctx.fillStyle = "#888888";
+      ctx.textAlign = "center";
+      ctx.fillText("背景画像を選択してください", canvas.width / 2, canvas.height / 2);
+    }
+
+    // 描画メイン処理
     function drawPoster() {
-      if (!bgImage.complete || bgImage.naturalWidth === 0) return;
+      if (!bgImage) {
+        drawPlaceholder();
+        return;
+      }
 
       const w = canvas.width;
       const h = canvas.height;
@@ -170,27 +198,24 @@
       ctx.clearRect(0, 0, w, h);
       ctx.drawImage(bgImage, 0, 0, w, h);
 
-      // 2. リボン部分の文字描画（文字数に応じてフォントサイズを動的調整）
+      // 2. リボン位置に文字を描画
       const text = locationInput.value;
       if (text) {
-        // リボンの横幅に合わせて基本サイズを設定
-        let fontSize = Math.floor(w * 0.08); 
-        
+        let fontSize = Math.floor(w * 0.08); // 文字サイズ自動計算
         ctx.font = `bold ${fontSize}px "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif`;
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        // 1枚目画像の上部リボン中央座標（%指定で相対位置調整）
+        // 1枚目画像のリボン中心位置（相対位置）
         const textX = w * 0.5;
         const textY = h * 0.188;
 
         ctx.fillText(text, textX, textY);
       }
 
-      // 3. 中央の白枠部分にQRコードを描画
+      // 3. 中央枠位置にQRコードを描画
       if (uploadedQR) {
-        // 中央白枠の相対位置とサイズ
         const qrSize = w * 0.355; 
         const qrX = (w - qrSize) / 2;
         const qrY = h * 0.528;
@@ -201,15 +226,15 @@
 
     // ダウンロード処理
     downloadBtn.addEventListener('click', () => {
-      try {
-        const link = document.createElement('a');
-        const filename = locationInput.value ? `${locationInput.value}_ポスター.png` : 'ポスター.png';
-        link.download = filename;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      } catch (e) {
-        alert('画像の保存に失敗しました。Webサーバー経由（http://）で開くか、Chrome/Edgeなどの最新ブラウザでお試しください。');
+      if (!bgImage) {
+        alert("背景画像を選択してください。");
+        return;
       }
+      const link = document.createElement('a');
+      const filename = locationInput.value ? `${locationInput.value}_ポスター.png` : 'ポスター.png';
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
     });
   </script>
 </body>
