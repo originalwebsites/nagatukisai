@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>デジタルスタンプラリー ポスター生成ツール</title>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+      background-color: #f4f6f8;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      font-size: 20px;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      max-width: 1000px;
+      width: 100%;
+    }
+    .form-section {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      flex: 1;
+      min-width: 300px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #555;
+    }
+    input[type="text"], input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      background-color: #0056b3;
+      color: white;
+      border: none;
+      padding: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #003d80;
+    }
+    .preview-section {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    canvas {
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>デジタルスタンプラリー ポスター画像生成</h1>
+
+  <div class="container">
+    <!-- 入力フォーム -->
+    <div class="form-section">
+      <div class="form-group">
+        <label for="locationText">1. 場所を示す文字列</label>
+        <input type="text" id="locationText" placeholder="例: 100周年記念館" value="100周年記念館">
+      </div>
+      
+      <div class="form-group">
+        <label for="qrFileInput">2. QRコード画像を選択</label>
+        <input type="file" id="qrFileInput" accept="image/*">
+      </div>
+
+      <button id="downloadBtn">画像をダウンロード</button>
+    </div>
+
+    <!-- プレビュー表示 -->
+    <div class="preview-section">
+      <canvas id="posterCanvas"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('posterCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const locationInput = document.getElementById('locationText');
+    const qrFileInput = document.getElementById('qrFileInput');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    // 背景台紙画像の読み込み
+    // ※ 1枚目の画像（文字・QRコード抜きの台紙）を「bg.jpg」という名前で同フォルダに配置してください
+    const bgImage = new Image();
+    bgImage.src = 'bg.jpg'; 
+
+    let uploadedQR = null;
+
+    // 画像読み込み完了時に描画
+    bgImage.onload = () => {
+      canvas.width = bgImage.naturalWidth;
+      canvas.height = bgImage.naturalHeight;
+      drawPoster();
+    };
+
+    // テキスト入力時のリアルタイム更新
+    locationInput.addEventListener('input', drawPoster);
+
+    // QRコード画像選択時の処理
+    qrFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          uploadedQR = new Image();
+          uploadedQR.onload = () => {
+            drawPoster();
+          };
+          uploadedQR.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // ポスターの全要素を描画する関数
+    function drawPoster() {
+      if (!bgImage.complete) return;
+
+      // 1. 背景画像の描画
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+
+      // 2. 場所文字列の描画（リボンの位置に合わせて調整）
+      const text = locationInput.value;
+      if (text) {
+        // 画像サイズに対する相対位置とフォントサイズの設定
+        const fontSize = Math.floor(canvas.width * 0.08); // 文字サイズ自動調整
+        ctx.font = `bold ${fontSize}px "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif`;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // リボンの中心付近の座標（画像解像度に合わせて調整）
+        const textX = canvas.width * 0.5;
+        const textY = canvas.height * 0.185; // 上部リボンの位置
+
+        // テキストの描画
+        ctx.fillText(text, textX, textY);
+      }
+
+      // 3. QRコード画像の描画（中央枠の位置に合わせて調整）
+      if (uploadedQR) {
+        // 中央枠の配置情報（パーセンテージ指定で位置調整）
+        const qrSize = canvas.width * 0.38; // QRコードの大きさ
+        const qrX = (canvas.width - qrSize) / 2;
+        const qrY = canvas.height * 0.525; // 中央の白枠の位置
+
+        ctx.drawImage(uploadedQR, qrX, qrY, qrSize, qrSize);
+      }
+    }
+
+    // ダウンロード機能
+    downloadBtn.addEventListener('click', () => {
+      const link = document.createElement('a');
+      const filename = locationInput.value ? `${locationInput.value}_poster.png` : 'poster.png';
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+  </script>
+</body>
+</html>
