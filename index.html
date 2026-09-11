@@ -201,7 +201,7 @@
       // 2. リボン位置に文字を描画
       const text = locationInput.value;
       if (text) {
-        let fontSize = Math.floor(w * 0.08); // 文字サイズ自動計算
+        let fontSize = Math.floor(w * 0.079); // 文字サイズ自動計算
         ctx.font = `bold ${fontSize}px "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif`;
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'center';
@@ -218,7 +218,7 @@
       if (uploadedQR) {
         const qrSize = w * 0.355; 
         const qrX = (w - qrSize) / 2;
-        const qrY = h * 0.528;
+        const qrY = h * 0.518;
 
         ctx.drawImage(uploadedQR, qrX, qrY, qrSize, qrSize);
       }
